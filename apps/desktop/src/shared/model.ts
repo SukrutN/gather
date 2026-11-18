@@ -291,17 +291,17 @@ export function initialSelection(project: Project): string | null {
 
 export function deleteDetail(node: BinderNode): string {
   const scenes = node.kind === 'scene' ? 0 : collectScenes(node).length
-  if (node.kind === 'part') return 'This removes the part, its chapters, and its scenes from the project folder.'
+  if (node.kind === 'part') return 'This deletes the part and everything in it.'
   if (node.kind === 'chapter') {
     return scenes
-      ? `This removes the chapter and ${scenes} ${scenes === 1 ? 'scene' : 'scenes'} inside it.`
-      : 'This removes the chapter from the project folder.'
+      ? `This deletes the chapter and ${scenes} ${scenes === 1 ? 'scene' : 'scenes'} in it.`
+      : 'This deletes the chapter.'
   }
-  if (node.kind === 'scene') return 'This removes the scene from the project folder.'
-  if (node.kind === 'character') return 'This removes the character sheet from the project folder.'
-  if (node.kind === 'place') return 'This removes the place sheet from the project folder.'
-  if (node.kind === 'note') return 'This removes the note from the project folder.'
-  return 'This removes the item and everything inside it.'
+  if (node.kind === 'scene') return 'This deletes the scene.'
+  if (node.kind === 'character') return 'This deletes the character.'
+  if (node.kind === 'place') return 'This deletes the place.'
+  if (node.kind === 'note') return 'This deletes the note.'
+  return 'This deletes it, and anything inside it.'
 }
 
 function parseNode(data: unknown): BinderNode {

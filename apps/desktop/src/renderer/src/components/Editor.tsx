@@ -1,4 +1,4 @@
-import { countWords, displayTitle, formatWords } from '@shared/model'
+import { countWords, formatWords } from '@shared/model'
 import type { Doc, Status } from '@shared/types'
 import { STATUSES } from '@shared/types'
 import { useEffect, useRef } from 'react'
@@ -23,11 +23,11 @@ export function Editor({ doc }: { doc: Doc }): JSX.Element {
 
   const placeholder =
     doc.kind === 'chapter'
-      ? 'Optional text before the scenes.'
+      ? 'Text before the scenes, if you want any.'
       : doc.kind === 'part'
-        ? 'Optional text for this part.'
+        ? 'Text for this part, if you want any.'
         : doc.kind === 'note'
-          ? 'Keep the thought here.'
+          ? 'Write the note.'
           : 'Write the scene.'
 
   return (
@@ -44,7 +44,7 @@ export function Editor({ doc }: { doc: Doc }): JSX.Element {
         aria-label="Synopsis"
         rows={2}
         value={doc.synopsis}
-        placeholder="What happens, in a sentence or two."
+        placeholder="A short reminder of what happens."
         onChange={(event) => controller.patchDoc(doc.id, { synopsis: event.target.value })}
       />
       <div className="doc-meta">
@@ -72,7 +72,7 @@ export function Editor({ doc }: { doc: Doc }): JSX.Element {
         spellCheck
         onChange={(event) => controller.patchDoc(doc.id, { body: event.target.value })}
       />
-      <p className="sheet-note">The binder name follows this title. {displayTitle(doc.title)} is saved with the project.</p>
+      <p className="sheet-note">This title is the name in the binder.</p>
     </article>
   )
 }

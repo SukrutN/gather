@@ -115,9 +115,8 @@ export function CompileDialog(): JSX.Element | null {
     <div className="scrim">
       <div className="dialog compile-dialog" role="dialog" aria-modal="true" aria-labelledby="compile-title">
         <header>
-          <p className="eyebrow">Compile</p>
-          <h2 id="compile-title">Make a copy of the manuscript</h2>
-          <p>Checked items leave in binder order. A chapter starts a new page in HTML and PDF.</p>
+          <h2 id="compile-title">Export</h2>
+          <p>Checked items export in binder order. In HTML and PDF, each chapter starts on a new page.</p>
         </header>
         <div className="compile-grid">
           <fieldset>
@@ -145,7 +144,7 @@ export function CompileDialog(): JSX.Element | null {
                 </span>
               </label>
             ))}
-            <p className="hint">Page size and margins apply to PDF and HTML. EPUB stays reflowable.</p>
+            <p className="hint">Page size is for PDF and HTML. EPUB reflows.</p>
           </fieldset>
         </div>
         <div className="compile-tree">

@@ -37,9 +37,8 @@ export function SettingsDialog(): JSX.Element | null {
           controller.setSettingsOpen(false)
         }}
       >
-        <p className="eyebrow">Project</p>
-        <h2 id="settings-title">Title page</h2>
-        <p>Compile uses these on the title page of Markdown, HTML, EPUB, and PDF.</p>
+        <h2 id="settings-title">Title and author</h2>
+        <p>These go on the title page when you export.</p>
         <label className="field">
           <span>Title</span>
           <input value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
@@ -53,7 +52,7 @@ export function SettingsDialog(): JSX.Element | null {
             Cancel
           </button>
           <button type="submit" className="btn">
-            Save settings
+            Save
           </button>
         </footer>
       </form>

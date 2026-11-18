@@ -20,7 +20,7 @@ export function ConfirmDialog(): JSX.Element | null {
         <p>{pending.detail}</p>
         <footer className="dialog-actions">
           <button type="button" className="btn quiet" onClick={controller.cancelDelete}>
-            Keep it
+            Cancel
           </button>
           <button type="button" className="btn danger" onClick={controller.confirmDelete}>
             Remove

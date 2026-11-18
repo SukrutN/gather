@@ -180,7 +180,7 @@ function createController(setState: Dispatch<SetStateAction<StudioState>>, initi
         selectedId: initialSelection(hydrated.project),
         saveState: 'saved',
         banner: hydrated.missing
-          ? 'Some documents were missing. They will be recreated the next time Gather saves.'
+          ? 'Some files were missing. They’ll be written the next time you save.'
           : null,
       }),
       hydrated.titlesChanged,
@@ -213,7 +213,7 @@ function createController(setState: Dispatch<SetStateAction<StudioState>>, initi
         if (await window.gather.projectExists(dir)) {
           commit((state) => ({
             ...state,
-            banner: 'This folder already holds a Gather project. Open it instead.',
+            banner: 'This folder already has a Gather project. Open that instead.',
           }))
           return
         }
@@ -236,7 +236,7 @@ function createController(setState: Dispatch<SetStateAction<StudioState>>, initi
         if (await window.gather.projectExists(dir)) {
           commit((state) => ({
             ...state,
-            banner: 'This folder already holds a Gather project. Choose a different folder for the sample.',
+            banner: 'This folder already has a Gather project. Pick another folder for the sample.',
           }))
           return
         }

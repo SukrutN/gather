@@ -9,21 +9,20 @@ export function FolderView({ node }: { node: BinderNode }): JSX.Element {
     state.project && node.kind === 'manuscript' ? formatWords(manuscriptWordCount(state.project, state.docs)) : null
   const intro =
     node.kind === 'manuscript'
-      ? 'Parts, chapters, and scenes live here, in the order the book will compile.'
+      ? 'Chapters and scenes, in the order they export.'
       : node.kind === 'characters'
-        ? 'A shelf for the people in the book. Open a name to edit the sheet.'
+        ? 'People in the book.'
         : node.kind === 'places'
-          ? 'Rooms, streets, and the other places the draft has to remember.'
-          : 'Research, rules, and the notes that should stay beside the manuscript.'
+          ? 'Places in the book.'
+          : 'Notes for yourself.'
 
   return (
     <article className="sheet folder-view">
-      <p className="eyebrow">{kindLabel(node.kind)}</p>
       <h2>{displayTitle(node.title)}</h2>
       <p className="lede">{intro}</p>
       {words ? <p className="word-count">{words}</p> : null}
       {children.length === 0 ? (
-        <p className="empty-copy">Nothing on this shelf yet. Use the buttons at the bottom of the binder.</p>
+        <p className="empty-copy">Nothing here yet.</p>
       ) : (
         <ul className="index-list">
           {children.map((child) => {

@@ -19,7 +19,7 @@ export function Corkboard(): JSX.Element {
         <p>{board.scenes.length === 1 ? '1 scene' : `${board.scenes.length} scenes`}</p>
       </header>
       {board.scenes.length === 0 ? (
-        <p className="empty-copy">This part of the binder has no scenes yet. Add a chapter, then a scene.</p>
+        <p className="empty-copy">No scenes here yet.</p>
       ) : (
         <div className="cards">
           {board.scenes.map((scene) => {

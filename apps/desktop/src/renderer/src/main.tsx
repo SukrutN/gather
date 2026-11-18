@@ -1,6 +1,7 @@
 import '@fontsource/fraunces/latin-500.css'
-import '@fontsource/fraunces/latin-500-italic.css'
 import '@fontsource/fraunces/latin-600.css'
+import '@fontsource/ibm-plex-sans/latin-400.css'
+import '@fontsource/ibm-plex-sans/latin-500.css'
 import '@fontsource/literata/latin-400.css'
 import '@fontsource/literata/latin-400-italic.css'
 import '@fontsource/literata/latin-600.css'

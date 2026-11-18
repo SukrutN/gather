@@ -18,7 +18,7 @@ export function Sheet({ doc }: { doc: Doc }): JSX.Element {
         <span>{place ? 'Type' : 'Role'}</span>
         <input
           value={place ? doc.placeType : doc.role}
-          placeholder={place ? 'Civic building, street, room' : 'Protagonist, patron, rival'}
+          placeholder={place ? 'City, room, road…' : 'Who they are in the story'}
           onChange={(event) =>
             controller.patchDoc(doc.id, place ? { placeType: event.target.value } : { role: event.target.value })
           }
@@ -29,7 +29,7 @@ export function Sheet({ doc }: { doc: Doc }): JSX.Element {
         <textarea
           rows={3}
           value={doc.summary}
-          placeholder="A line you could find again later."
+          placeholder="A sentence or two."
           onChange={(event) => controller.patchDoc(doc.id, { summary: event.target.value })}
         />
       </label>
@@ -39,7 +39,7 @@ export function Sheet({ doc }: { doc: Doc }): JSX.Element {
           className="notes"
           rows={10}
           value={doc.body}
-          placeholder="Anything you don’t want to lose."
+          placeholder="Notes"
           onChange={(event) => controller.patchDoc(doc.id, { body: event.target.value })}
         />
       </label>
