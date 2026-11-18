@@ -1,0 +1,23 @@
+import { resolve } from 'node:path'
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'electron-vite'
+
+const shared = resolve('src/shared')
+
+export default defineConfig({
+  main: {
+    resolve: { alias: { '@shared': shared } },
+  },
+  preload: {
+    resolve: { alias: { '@shared': shared } },
+  },
+  renderer: {
+    resolve: {
+      alias: {
+        '@shared': shared,
+        '@renderer': resolve('src/renderer/src'),
+      },
+    },
+    plugins: [react()],
+  },
+})

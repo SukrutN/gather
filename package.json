@@ -1,0 +1,23 @@
+{
+  "name": "gather",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Gather is a local-first novel studio.",
+  "workspaces": [
+    "apps/desktop",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:desktop": "npm run dev -w @gather/desktop",
+    "start:desktop": "npm run start -w @gather/desktop",
+    "build:desktop": "npm run build -w @gather/desktop",
+    "dev:web": "npm run dev -w @gather/web",
+    "build:web": "npm run build -w @gather/web",
+    "preview:web": "npm run preview -w @gather/web",
+    "build": "npm run build:desktop && npm run build:web",
+    "typecheck": "npm run typecheck -w @gather/desktop && npm run typecheck -w @gather/web"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
