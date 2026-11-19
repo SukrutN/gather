@@ -1,5 +1,7 @@
 # Gather
 
+Marketing site: https://sukrutn.github.io/gather/
+
 Gather is a local-first novel studio. A project is a folder of ordinary files on your machine. There is no account, no sync, and no hosted editor. The desktop app works offline. This repository also contains the marketing site.
 
 Gather does three jobs:
