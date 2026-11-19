@@ -127,10 +127,16 @@ function oneLine(value: string): string {
 }
 
 export function compileMarkdown(project: Project, docs: Record<string, Doc>, included: Set<string>): string {
+  const pieces = collectPieces(project, docs, included)
   const lines: string[] = [`# ${oneLine(bookTitle(project))}`, '']
   const author = project.author.trim()
   if (author) lines.push(author, '')
-  for (const piece of collectPieces(project, docs, included)) {
+  lines.push('## Contents', '')
+  for (const piece of pieces) {
+    lines.push(piece.type === 'part' ? `- ${oneLine(piece.title)}` : `  - ${oneLine(piece.title)}`)
+  }
+  lines.push('')
+  for (const piece of pieces) {
     lines.push('---', '')
     if (piece.type === 'part') {
       lines.push(`# ${oneLine(piece.title)}`, '')
@@ -138,10 +144,10 @@ export function compileMarkdown(project: Project, docs: Record<string, Doc>, inc
     } else {
       lines.push(`## ${oneLine(piece.title)}`, '')
       if (piece.body.trim()) lines.push(piece.body.trim(), '')
-      for (const scene of piece.scenes) {
-        lines.push(`### ${oneLine(scene.title)}`, '')
+      piece.scenes.forEach((scene, index) => {
+        if (index > 0) lines.push('* * *', '')
         if (scene.body.trim()) lines.push(scene.body.trim(), '')
-      }
+      })
     }
   }
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`
@@ -196,12 +202,23 @@ function printCss(presetId: PrintPresetId): string {
     @page {
       size: ${preset.widthIn}in ${preset.heightIn}in;
       margin: ${preset.marginTopIn}in ${preset.marginRightIn}in ${preset.marginBottomIn}in ${preset.marginLeftIn}in;
+      @top-center {
+        content: string(runhead);
+        font-family: Palatino, "Palatino Linotype", Georgia, serif;
+        font-size: 9pt;
+        font-style: italic;
+        color: #444;
+      }
       @bottom-center {
         content: counter(page);
         font-family: Palatino, "Palatino Linotype", Georgia, serif;
         font-size: 9pt;
         color: #444;
       }
+    }
+    @page front {
+      @top-center { content: none; }
+      @bottom-center { content: none; }
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -212,7 +229,8 @@ function printCss(presetId: PrintPresetId): string {
       color: #1a1612;
       background: white;
     }
-    .title-page { text-align: center; padding-top: ${titlePad}in; }
+    .title-page, .contents { page: front; text-align: center; }
+    .title-page { padding-top: ${titlePad}in; }
     .title-page h1 {
       font-weight: normal;
       font-size: 1.8em;
@@ -220,28 +238,31 @@ function printCss(presetId: PrintPresetId): string {
       margin: 0 0 0.8em;
     }
     .byline { font-style: italic; margin: 0; }
+    .contents { break-before: page; page-break-before: always; text-align: left; }
+    .contents h2 { text-align: center; }
+    .contents ol { list-style: none; padding: 0; }
+    .contents li { margin: 0.35em 0; }
+    .contents .part-line { margin-top: 1em; font-variant: small-caps; }
     .part, .chapter { break-before: page; page-break-before: always; }
     h2 {
       font-weight: normal;
       text-align: center;
       font-size: 1.45em;
       line-height: 1.2;
-      margin: 0 0 1.2em;
+      margin: 0 0 1.4em;
       page-break-after: avoid;
       break-after: avoid;
     }
+    .chapter h2 { string-set: runhead content(); margin-top: 1.6em; }
     .part h2 { margin-top: 28%; font-size: 1.7em; }
-    .scene-title {
+    .scene-break {
       text-align: center;
-      font-style: italic;
-      font-weight: normal;
-      font-size: 1em;
-      margin: 1.5em 0 0.8em;
-      page-break-after: avoid;
-      break-after: avoid;
+      text-indent: 0;
+      margin: 1.3em 0;
+      letter-spacing: 0.35em;
     }
     p { text-indent: 1.15em; margin: 0; orphans: 2; widows: 2; }
-    h2 + p, h3 + p, h4 + p, .scene-title + p, hr + p { text-indent: 0; }
+    h2 + p, h3 + p, h4 + p, .scene-break + p, hr + p { text-indent: 0; }
     h4, h5, h6 { font-weight: normal; font-style: italic; text-align: center; page-break-after: avoid; }
     ul { margin: 0.6em 0 0.6em 1.2em; padding: 0; }
     li { margin: 0.15em 0; }
@@ -271,7 +292,8 @@ function renderPieces(pieces: Piece[]): string {
       const scenes = piece.scenes
         .map((scene, index) => {
           const prose = proseToHtml(scene.body)
-          return `<section class="scene" id="s-${index + 1}"><h3 class="scene-title">${escapeXml(oneLine(scene.title))}</h3>${prose}</section>`
+          const rule = index > 0 ? '<p class="scene-break">* * *</p>' : ''
+          return `${rule}<section class="scene" id="s-${index + 1}">${prose}</section>`
         })
         .join('\n')
       return `<section class="chapter"><h2>${escapeXml(oneLine(piece.title))}</h2>${body}${scenes}</section>`
@@ -283,6 +305,16 @@ function titlePage(project: Project): string {
   const author = project.author.trim()
   const byline = author ? `<p class="byline">${escapeXml(author)}</p>` : ''
   return `<section class="title-page"><h1>${escapeXml(bookTitle(project))}</h1>${byline}</section>`
+}
+
+function contentsHtml(pieces: Piece[]): string {
+  const items = pieces
+    .map((piece) => {
+      const klass = piece.type === 'part' ? 'part-line' : 'chapter-line'
+      return `<li class="${klass}">${escapeXml(oneLine(piece.title))}</li>`
+    })
+    .join('')
+  return `<section class="contents"><h2>Contents</h2><ol>${items}</ol></section>`
 }
 
 export function compileHtml(project: Project, docs: Record<string, Doc>, included: Set<string>, presetId: PrintPresetId): string {
@@ -298,6 +330,7 @@ export function compileHtml(project: Project, docs: Record<string, Doc>, include
 <body>
   <article>
     ${titlePage(project)}
+    ${contentsHtml(pieces)}
     ${renderPieces(pieces)}
   </article>
 </body>
@@ -310,10 +343,12 @@ body { font-family: Georgia, Palatino, "Palatino Linotype", serif; line-height: 
 h1, h2 { font-weight: normal; text-align: center; line-height: 1.2; }
 .title-page { text-align: center; margin-top: 20%; }
 .byline { font-style: italic; }
-.part, .chapter { page-break-before: always; break-before: page; }
-.scene-title { text-align: center; font-style: italic; font-weight: normal; font-size: 1em; margin: 1.4em 0 0.8em; page-break-after: avoid; }
+.part, .chapter, .contents { page-break-before: always; break-before: page; }
+.scene-break { text-align: center; text-indent: 0; margin: 1.3em 0; letter-spacing: 0.35em; }
+.contents ol { list-style: none; padding: 0; }
+.contents .part-line { margin-top: 1em; }
 p { text-indent: 1.15em; margin: 0.15em 0; }
-h2 + p, h3 + p, .scene-title + p { text-indent: 0; }
+h2 + p, .scene-break + p { text-indent: 0; }
 ul { margin: 0.6em 0 0.6em 1.2em; padding: 0; }
 nav ol { font-family: Georgia, Palatino, serif; }
 `.trim()
@@ -344,9 +379,13 @@ export function compileEpubFiles(project: Project, docs: Record<string, Doc>, in
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
     '<item id="css" href="style.css" media-type="text/css"/>',
     '<item id="title" href="title.xhtml" media-type="application/xhtml+xml"/>',
+    '<item id="contents" href="contents.xhtml" media-type="application/xhtml+xml"/>',
   ]
-  const spine = ['<itemref idref="title"/>', '<itemref idref="nav"/>']
-  const toc: string[] = [`<li><a href="title.xhtml">${escapeXml(bookTitle(project))}</a></li>`]
+  const spine = ['<itemref idref="title"/>', '<itemref idref="contents"/>', '<itemref idref="nav"/>']
+  const toc: string[] = [
+    `<li><a href="title.xhtml">${escapeXml(bookTitle(project))}</a></li>`,
+    '<li><a href="contents.xhtml">Contents</a></li>',
+  ]
   let partCount = 0
   let chapterCount = 0
   let pendingPart: { href: string; title: string; chapters: string[] } | null = null
@@ -385,7 +424,8 @@ export function compileEpubFiles(project: Project, docs: Record<string, Doc>, in
     const body = proseToHtml(piece.body)
     const scenes = piece.scenes
       .map((scene, index) => {
-        return `<section class="scene" id="s-${index + 1}"><h3 class="scene-title">${escapeXml(oneLine(scene.title))}</h3>${proseToHtml(scene.body)}</section>`
+        const rule = index > 0 ? '<p class="scene-break">* * *</p>' : ''
+        return `${rule}<section class="scene" id="s-${index + 1}">${proseToHtml(scene.body)}</section>`
       })
       .join('\n')
     files.push({
@@ -397,14 +437,7 @@ export function compileEpubFiles(project: Project, docs: Record<string, Doc>, in
     })
     manifest.push(`<item id="c${chapterCount}" href="${href}" media-type="application/xhtml+xml"/>`)
     spine.push(`<itemref idref="c${chapterCount}"/>`)
-    const sceneLinks = piece.scenes
-      .map(
-        (scene, index) =>
-          `<li><a href="${href}#s-${index + 1}">${escapeXml(oneLine(scene.title))}</a></li>`,
-      )
-      .join('')
-    const sceneList = sceneLinks ? `<ol>${sceneLinks}</ol>` : ''
-    const chapterItem = `<li><a href="${href}">${escapeXml(oneLine(piece.title))}</a>${sceneList}</li>`
+    const chapterItem = `<li><a href="${href}">${escapeXml(oneLine(piece.title))}</a></li>`
     if (pendingPart) pendingPart.chapters.push(chapterItem)
     else toc.push(chapterItem)
   }
@@ -414,6 +447,10 @@ export function compileEpubFiles(project: Project, docs: Record<string, Doc>, in
     'Contents',
     `<nav epub:type="toc" id="toc"><h1>Contents</h1><ol>${toc.join('')}</ol></nav>`,
   )
+  files.push({
+    path: 'OEBPS/contents.xhtml',
+    text: xhtml('Contents', contentsHtml(pieces)),
+  })
   files.push({ path: 'OEBPS/nav.xhtml', text: nav })
   files.push({ path: 'OEBPS/style.css', text: EPUB_CSS })
 

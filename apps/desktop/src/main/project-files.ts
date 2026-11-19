@@ -1,10 +1,10 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { BrowserWindow } from 'electron'
 import { parseProject } from '@shared/model'
-import type { DocumentFile, PdfExport, Project, SaveBundle } from '@shared/types'
+import type { DocumentFile, PdfExport, Project, SaveBundle, SnapshotInfo } from '@shared/types'
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -161,4 +161,60 @@ export async function printPdf(request: PdfExport, filePath: string): Promise<vo
     if (!printWindow.isDestroyed()) printWindow.destroy()
     await rm(temporary, { force: true })
   }
+}
+
+const SNAPSHOT_NAME = /^\d{8}-\d{9}\.md$/
+
+function snapshotFolder(dir: string, id: string): string {
+  assertId(id)
+  const root = assertDir(dir)
+  const folder = join(root, 'snapshots', id)
+  inside(root, folder)
+  return folder
+}
+
+function stampName(date = new Date()): string {
+  const pad = (value: number, size = 2) => String(value).padStart(size, '0')
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}${pad(date.getMilliseconds(), 3)}.md`
+}
+
+export function snapshotLabel(name: string): string {
+  const match = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/.exec(name)
+  if (!match) return name
+  return `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}`
+}
+
+export async function listSnapshots(dir: string, id: string): Promise<SnapshotInfo[]> {
+  const folder = snapshotFolder(dir, id)
+  let names: string[] = []
+  try {
+    names = await readdir(folder)
+  } catch {
+    return []
+  }
+  return names
+    .filter((name) => SNAPSHOT_NAME.test(name))
+    .sort()
+    .reverse()
+    .map((name) => ({ name, savedAt: snapshotLabel(name) }))
+}
+
+export async function keepSnapshot(dir: string, id: string, markdown: string): Promise<void> {
+  if (typeof markdown !== 'string') throw new Error('Nothing to keep.')
+  const folder = snapshotFolder(dir, id)
+  await mkdir(folder, { recursive: true })
+  await writeFile(join(folder, stampName()), markdown, 'utf8')
+  const names = (await readdir(folder)).filter((name) => SNAPSHOT_NAME.test(name)).sort()
+  const extra = names.length - 8
+  for (let index = 0; index < extra; index += 1) {
+    const old = names[index]
+    if (old) await rm(join(folder, old), { force: true })
+  }
+}
+
+export async function readSnapshot(dir: string, id: string, name: string): Promise<string> {
+  if (!SNAPSHOT_NAME.test(name)) throw new Error('That copy is not in this project.')
+  const file = join(snapshotFolder(dir, id), name)
+  inside(assertDir(dir), file)
+  return readFile(file, 'utf8')
 }

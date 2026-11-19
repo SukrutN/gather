@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BrowserWindow, Menu, app, dialog, ipcMain } from 'electron'
 import type { DirectoryPurpose, EpubExport, MenuAction, PdfExport, SaveBundle, TextExport } from '@shared/types'
-import { loadProject, printPdf, projectExists, saveProject, withExtension } from './project-files'
+import { keepSnapshot, listSnapshots, loadProject, printPdf, projectExists, readSnapshot, saveProject, withExtension } from './project-files'
 import { packEpub } from './zip'
 
 let chain: Promise<void> = Promise.resolve()
@@ -97,6 +97,10 @@ function createWindow(): void {
       sandbox: true,
     },
   })
+  const launchDir = process.env.GATHER_PROJECT
+  win.webContents.on('did-finish-load', () => {
+    if (launchDir) win.webContents.send('open-folder', launchDir)
+  })
   win.on('ready-to-show', () => win.show())
   if (process.env.ELECTRON_RENDERER_URL) {
     void win.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -140,6 +144,25 @@ ipcMain.handle('project:save', async (_event, dir: unknown, bundle: unknown) => 
   }
   const save = bundle as SaveBundle
   await enqueue(() => saveProject(dir, save))
+})
+
+ipcMain.handle('snapshot:list', async (_event, dir: unknown, id: unknown) => {
+  if (typeof dir !== 'string' || typeof id !== 'string') return []
+  return listSnapshots(dir, id)
+})
+
+ipcMain.handle('snapshot:keep', async (_event, dir: unknown, id: unknown, markdown: unknown) => {
+  if (typeof dir !== 'string' || typeof id !== 'string' || typeof markdown !== 'string') {
+    throw new Error('Could not keep a copy.')
+  }
+  await keepSnapshot(dir, id, markdown)
+})
+
+ipcMain.handle('snapshot:read', async (_event, dir: unknown, id: unknown, name: unknown) => {
+  if (typeof dir !== 'string' || typeof id !== 'string' || typeof name !== 'string') {
+    throw new Error('Could not read that copy.')
+  }
+  return readSnapshot(dir, id, name)
 })
 
 ipcMain.handle('window:title', (event, title: unknown) => {

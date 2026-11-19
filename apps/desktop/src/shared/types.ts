@@ -24,11 +24,24 @@ export interface BinderNode {
   children?: BinderNode[]
 }
 
+export interface PlotThread {
+  id: string
+  name: string
+  color: string
+}
+
+export interface Relationship {
+  characterId: string
+  note: string
+}
+
 export interface Project {
   format: 'gather-project'
   version: 1
   title: string
   author: string
+  wordGoal: number
+  threads: PlotThread[]
   created: string
   modified: string
   binder: BinderNode[]
@@ -49,6 +62,17 @@ export interface Doc {
   role: string
   placeType: string
   summary: string
+  pov: string
+  location: string
+  thread: string
+  storyDay: string
+  wordGoal: number
+  goal: string
+  fear: string
+  secret: string
+  sense: string
+  control: string
+  relationships: Relationship[]
   extra: ExtraField[]
 }
 
@@ -89,6 +113,18 @@ export interface PdfExport {
   heightMicrons: number
 }
 
+export interface SnapshotInfo {
+  name: string
+  savedAt: string
+}
+
+export interface SearchHit {
+  id: string
+  title: string
+  kind: Kind
+  snippet: string
+}
+
 export type MenuAction = 'new' | 'open' | 'sample' | 'compile' | 'focus' | 'save'
 
 export interface GatherApi {
@@ -100,5 +136,9 @@ export interface GatherApi {
   saveEpub: (request: EpubExport) => Promise<string | null>
   savePdf: (request: PdfExport) => Promise<string | null>
   setTitle: (title: string) => Promise<void>
+  listSnapshots: (dir: string, id: string) => Promise<SnapshotInfo[]>
+  keepSnapshot: (dir: string, id: string, markdown: string) => Promise<void>
+  readSnapshot: (dir: string, id: string, name: string) => Promise<string>
   onMenu: (handler: (action: MenuAction) => void) => () => void
+  onOpenFolder: (handler: (dir: string) => void) => () => void
 }

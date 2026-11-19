@@ -1,5 +1,5 @@
 import { documentKind, parseDocument } from './markdown'
-import type { BinderNode, Doc, Kind, Project, Status } from './types'
+import type { BinderNode, Doc, Kind, PlotThread, Project, SearchHit, Status } from './types'
 import { KINDS } from './types'
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -88,6 +88,17 @@ export function blankDoc(id: string, kind: Kind, title: string, status: Status =
     role: '',
     placeType: '',
     summary: '',
+    pov: '',
+    location: '',
+    thread: '',
+    storyDay: '',
+    wordGoal: 0,
+    goal: '',
+    fear: '',
+    secret: '',
+    sense: '',
+    control: '',
+    relationships: [],
     extra: [],
   }
 }
@@ -246,6 +257,63 @@ export function manuscriptOf(project: Project): BinderNode | null {
   return project.binder.find((node) => node.kind === 'manuscript') ?? null
 }
 
+export function chapterWordCount(chapter: BinderNode, docs: Record<string, Doc>): number {
+  let total = countWords(docs[chapter.id]?.body ?? '')
+  for (const scene of collectScenes(chapter)) total += countWords(docs[scene.id]?.body ?? '')
+  return total
+}
+
+export function scenesWhere(
+  project: Project,
+  docs: Record<string, Doc>,
+  field: 'pov' | 'location',
+  id: string,
+): BinderNode[] {
+  const manuscript = manuscriptOf(project)
+  if (!manuscript || !id) return []
+  return collectScenes(manuscript).filter((scene) => docs[scene.id]?.[field] === id)
+}
+
+export function searchProject(project: Project, docs: Record<string, Doc>, query: string): SearchHit[] {
+  const needle = query.trim().toLowerCase()
+  if (needle.length < 2) return []
+  const hits: SearchHit[] = []
+  const walk = (nodes: BinderNode[]): void => {
+    for (const node of nodes) {
+      if (hits.length >= 24) return
+      const doc = docs[node.id]
+      const hay = [
+        node.title,
+        doc?.title,
+        doc?.synopsis,
+        doc?.summary,
+        doc?.body,
+        doc?.goal,
+        doc?.fear,
+        doc?.secret,
+        doc?.sense,
+        doc?.role,
+        doc?.storyDay,
+      ]
+        .filter((part): part is string => Boolean(part))
+        .join('\n')
+      const index = hay.toLowerCase().indexOf(needle)
+      if (index >= 0 && documentKind(node.kind)) {
+        const start = Math.max(0, index - 28)
+        hits.push({
+          id: node.id,
+          title: displayTitle(doc?.title || node.title),
+          kind: node.kind,
+          snippet: hay.slice(start, index + needle.length + 42).replace(/\s+/g, ' ').trim(),
+        })
+      }
+      if (node.children) walk(node.children)
+    }
+  }
+  walk(project.binder)
+  return hits
+}
+
 export function manuscriptWordCount(project: Project, docs: Record<string, Doc>): number {
   const manuscript = manuscriptOf(project)
   if (!manuscript) return 0
@@ -334,6 +402,32 @@ function assertUnique(nodes: BinderNode[]): void {
   walk(nodes)
 }
 
+const THREAD_COLOR = /^#[0-9a-fA-F]{6}$/
+
+export const THREAD_COLORS = ['#6e2e2e', '#3f5344', '#7a5b32', '#1c1915', '#5c4a62'] as const
+
+function positiveInt(value: unknown): number {
+  const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+  if (!Number.isFinite(number) || number <= 0) return 0
+  return Math.round(number)
+}
+
+function parseThreads(value: unknown): PlotThread[] {
+  if (!Array.isArray(value)) return []
+  const threads: PlotThread[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    if (typeof record.id !== 'string' || !ID_RE.test(record.id) || typeof record.name !== 'string') continue
+    threads.push({
+      id: record.id,
+      name: record.name,
+      color: typeof record.color === 'string' && THREAD_COLOR.test(record.color) ? record.color : THREAD_COLORS[0],
+    })
+  }
+  return threads
+}
+
 export function parseProject(data: unknown): Project {
   if (!data || typeof data !== 'object') throw new Error('project.json is not an object.')
   const record = data as Record<string, unknown>
@@ -355,6 +449,8 @@ export function parseProject(data: unknown): Project {
     version: 1,
     title: record.title,
     author: record.author,
+    wordGoal: positiveInt(record.wordGoal),
+    threads: parseThreads(record.threads),
     created: typeof record.created === 'string' ? record.created : new Date().toISOString(),
     modified: typeof record.modified === 'string' ? record.modified : new Date().toISOString(),
     binder,
@@ -374,6 +470,8 @@ export function createEmptyProject(title = 'Untitled Novel', author = ''): Proje
     version: 1,
     title,
     author,
+    wordGoal: 0,
+    threads: [],
     created: now,
     modified: now,
     binder: [
