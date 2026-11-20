@@ -111,3 +111,20 @@ export function packEpub(files: Array<{ path: string; text: string }>): Buffer {
   }
   return zipSync(entries)
 }
+
+const DOCX_PATH = /^(?:\[Content_Types\]\.xml|_rels\/\.rels|word\/_rels\/document\.xml\.rels|word\/[A-Za-z0-9._-]+)$/
+
+export function packDocx(files: Array<{ path: string; text: string }>): Buffer {
+  const entries: ZipEntry[] = []
+  for (const file of files) {
+    if (file.path.includes('..') || file.path.startsWith('/') || file.path.includes('\\')) {
+      throw new Error(`Refusing to pack an unsafe DOCX path: ${file.path}`)
+    }
+    if (!DOCX_PATH.test(file.path)) throw new Error(`Refusing to pack an unsafe DOCX path: ${file.path}`)
+    entries.push({ name: file.path, data: Buffer.from(file.text, 'utf8'), store: false })
+  }
+  if (!entries.some((entry) => entry.name === 'word/document.xml')) {
+    throw new Error('A DOCX needs word/document.xml.')
+  }
+  return zipSync(entries)
+}

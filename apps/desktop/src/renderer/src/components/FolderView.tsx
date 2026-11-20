@@ -14,13 +14,22 @@ export function FolderView({ node }: { node: BinderNode }): JSX.Element {
         ? 'People in the book.'
         : node.kind === 'places'
           ? 'Places in the book.'
-          : 'Notes for yourself.'
+          : node.kind === 'research'
+            ? 'Reference files kept in the project folder: PDFs, images, clippings. They open in the app your system uses for them.'
+            : 'Notes for yourself.'
 
   return (
     <article className="sheet folder-view">
       <h2>{displayTitle(node.title)}</h2>
       <p className="lede">{intro}</p>
       {words ? <p className="word-count">{words}</p> : null}
+      {node.kind === 'research' ? (
+        <div className="folder-tools">
+          <button className="btn small" type="button" onClick={() => void controller.researchAddFile()}>
+            Add a research file…
+          </button>
+        </div>
+      ) : null}
       {children.length === 0 ? (
         <p className="empty-copy">Nothing here yet.</p>
       ) : (
@@ -32,7 +41,9 @@ export function FolderView({ node }: { node: BinderNode }): JSX.Element {
                 ? doc?.role
                 : child.kind === 'place'
                   ? doc?.placeType
-                  : doc?.synopsis
+                  : child.kind === 'file'
+                    ? 'Opens in its own app.'
+                    : doc?.synopsis
             return (
               <li key={child.id}>
                 <button type="button" onClick={() => controller.select(child.id)}>

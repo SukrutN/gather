@@ -15,12 +15,19 @@ export function isContainer(kind: Kind): boolean {
     kind === 'chapter' ||
     kind === 'characters' ||
     kind === 'places' ||
-    kind === 'notes'
+    kind === 'notes' ||
+    kind === 'research'
   )
 }
 
 export function isRootKind(kind: Kind): boolean {
-  return kind === 'manuscript' || kind === 'characters' || kind === 'places' || kind === 'notes'
+  return (
+    kind === 'manuscript' ||
+    kind === 'characters' ||
+    kind === 'places' ||
+    kind === 'notes' ||
+    kind === 'research'
+  )
 }
 
 export function canContain(parent: Kind, child: Kind): boolean {
@@ -30,6 +37,7 @@ export function canContain(parent: Kind, child: Kind): boolean {
   if (parent === 'characters') return child === 'character'
   if (parent === 'places') return child === 'place'
   if (parent === 'notes') return child === 'note'
+  if (parent === 'research') return child === 'file'
   return false
 }
 
@@ -55,6 +63,10 @@ export function kindLabel(kind: Kind): string {
       return 'Notes'
     case 'note':
       return 'Note'
+    case 'research':
+      return 'Research'
+    case 'file':
+      return 'File'
   }
 }
 
@@ -72,6 +84,8 @@ export function defaultTitle(kind: Kind): string {
       return 'New place'
     case 'note':
       return 'New note'
+    case 'file':
+      return 'New file'
     default:
       return 'Untitled'
   }
@@ -99,6 +113,7 @@ export function blankDoc(id: string, kind: Kind, title: string, status: Status =
     sense: '',
     control: '',
     relationships: [],
+    keywords: [],
     extra: [],
   }
 }
@@ -294,6 +309,7 @@ export function searchProject(project: Project, docs: Record<string, Doc>, query
         doc?.sense,
         doc?.role,
         doc?.storyDay,
+        doc?.keywords.join('\n'),
       ]
         .filter((part): part is string => Boolean(part))
         .join('\n')
@@ -428,6 +444,19 @@ function parseThreads(value: unknown): PlotThread[] {
   return threads
 }
 
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+export function parseHistory(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const history: Record<string, number> = {}
+  for (const [day, words] of Object.entries(value as Record<string, unknown>)) {
+    if (!DAY_KEY.test(day)) continue
+    const count = typeof words === 'number' ? words : Number(words)
+    if (Number.isFinite(count) && count !== 0) history[day] = Math.round(count)
+  }
+  return history
+}
+
 export function parseProject(data: unknown): Project {
   if (!data || typeof data !== 'object') throw new Error('project.json is not an object.')
   const record = data as Record<string, unknown>
@@ -451,6 +480,7 @@ export function parseProject(data: unknown): Project {
     author: record.author,
     wordGoal: positiveInt(record.wordGoal),
     threads: parseThreads(record.threads),
+    history: parseHistory(record.history),
     created: typeof record.created === 'string' ? record.created : new Date().toISOString(),
     modified: typeof record.modified === 'string' ? record.modified : new Date().toISOString(),
     binder,
@@ -472,6 +502,7 @@ export function createEmptyProject(title = 'Untitled Novel', author = ''): Proje
     author,
     wordGoal: 0,
     threads: [],
+    history: {},
     created: now,
     modified: now,
     binder: [
@@ -479,6 +510,7 @@ export function createEmptyProject(title = 'Untitled Novel', author = ''): Proje
       shelf('characters', 'Characters'),
       shelf('places', 'Places'),
       shelf('notes', 'Notes'),
+      shelf('research', 'Research'),
     ],
   }
 }
@@ -496,6 +528,12 @@ export function hydrate(project: Project, files: Array<{ id: string; markdown: s
   let missing = false
   let titlesChanged = false
   const binder = structuredClone(project.binder)
+
+  // Projects made before the research shelf existed get it added here, so
+  // every open project can hold research files. It is structural only.
+  if (!binder.some((node) => node.kind === 'research')) {
+    binder.push({ id: crypto.randomUUID(), kind: 'research', title: 'Research', children: [] })
+  }
 
   const walk = (nodes: BinderNode[]): void => {
     for (const node of nodes) {
@@ -520,4 +558,227 @@ export function hydrate(project: Project, files: Array<{ id: string; markdown: s
 export function safeFileBase(title: string): string {
   const cleaned = title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim()
   return cleaned || 'Untitled Novel'
+}
+
+export function subtreeWordCount(node: BinderNode, docs: Record<string, Doc>): number {
+  let total = documentKind(node.kind) ? countWords(docs[node.id]?.body ?? '') : 0
+  for (const child of node.children ?? []) total += subtreeWordCount(child, docs)
+  return total
+}
+
+export function dayKey(date = new Date()): string {
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+export function bumpHistory(history: Record<string, number>, key: string, delta: number): Record<string, number> {
+  if (!delta) return history
+  const next = { ...history }
+  const value = (next[key] ?? 0) + delta
+  if (value === 0) delete next[key]
+  else next[key] = value
+  return next
+}
+
+export function writingStreak(history: Record<string, number>, today = new Date()): number {
+  const cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  if (!(history[dayKey(cursor)] > 0)) cursor.setDate(cursor.getDate() - 1)
+  let streak = 0
+  while ((history[dayKey(cursor)] ?? 0) > 0) {
+    streak += 1
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
+export interface ProjectStats {
+  total: number
+  goal: number
+  today: number
+  streak: number
+  scenesDone: number
+  scenesTotal: number
+  last7: Array<{ day: string; words: number }>
+}
+
+export function projectStats(project: Project, docs: Record<string, Doc>, today = new Date()): ProjectStats {
+  const cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const last7: Array<{ day: string; words: number }> = []
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const day = new Date(cursor)
+    day.setDate(cursor.getDate() - offset)
+    const key = dayKey(day)
+    last7.push({ day: key, words: project.history[key] ?? 0 })
+  }
+  const manuscript = manuscriptOf(project)
+  const scenes = manuscript ? collectScenes(manuscript) : []
+  const scenesDone = scenes.filter((scene) => docs[scene.id]?.status === 'done').length
+  return {
+    total: manuscriptWordCount(project, docs),
+    goal: project.wordGoal,
+    today: project.history[dayKey(cursor)] ?? 0,
+    streak: writingStreak(project.history, cursor),
+    scenesDone,
+    scenesTotal: scenes.length,
+    last7,
+  }
+}
+
+export interface Duplicated {
+  node: BinderNode
+  docs: Doc[]
+}
+
+export function duplicateSubtree(node: BinderNode, docs: Record<string, Doc>): Duplicated {
+  const copied: Doc[] = []
+  const clone = (current: BinderNode): BinderNode => {
+    const id = crypto.randomUUID()
+    const doc = docs[current.id]
+    if (doc) copied.push({ ...doc, id })
+    const next: BinderNode = { id, kind: current.kind, title: current.title }
+    if (current.children) next.children = current.children.map(clone)
+    return next
+  }
+  const copy = clone(node)
+  copy.title = `${displayTitle(copy.title)} (copy)`
+  for (const doc of copied) {
+    if (doc.id === copy.id) doc.title = copy.title
+  }
+  return { node: copy, docs: copied }
+}
+
+export function insertAfter(binder: BinderNode[], afterId: string, child: BinderNode): BinderNode[] {
+  const next: BinderNode[] = []
+  for (const node of binder) {
+    if (node.id === afterId) {
+      next.push(node, child)
+      continue
+    }
+    if (node.children) next.push({ ...node, children: insertAfter(node.children, afterId, child) })
+    else next.push(node)
+  }
+  return next
+}
+
+export type DropPlacement = 'inside' | 'after'
+
+function containsId(node: BinderNode, id: string): boolean {
+  if (node.id === id) return true
+  return (node.children ?? []).some((child) => containsId(child, id))
+}
+
+/** Move a binder node by dropping it inside a container or after a sibling. */
+export function moveNode(
+  binder: BinderNode[],
+  sourceId: string,
+  targetId: string,
+  placement: DropPlacement,
+): BinderNode[] {
+  if (sourceId === targetId) return binder
+  const source = locate(binder, sourceId)
+  const target = locate(binder, targetId)
+  if (!source?.parent || !target) return binder
+  if (containsId(source.node, targetId)) return binder
+  if (placement === 'inside') {
+    if (!isContainer(target.node.kind) || !canContain(target.node.kind, source.node.kind)) return binder
+  } else {
+    if (!target.parent) return binder
+    if (!canContain(target.parent.kind, source.node.kind)) return binder
+  }
+  const detached = deleteBinderNode(binder, sourceId)
+  return placement === 'inside'
+    ? insertChild(detached, target.node.id, source.node)
+    : insertAfter(detached, targetId, source.node)
+}
+
+export interface OutlineRow {
+  id: string
+  kind: Kind
+  depth: number
+  title: string
+  synopsis: string
+  status: Status
+  words: number
+  pov: string
+  day: string
+}
+
+export function outlineRows(project: Project, docs: Record<string, Doc>): OutlineRow[] {
+  const manuscript = manuscriptOf(project)
+  if (!manuscript) return []
+  const rows: OutlineRow[] = []
+  const walk = (node: BinderNode, depth: number): void => {
+    if (node.kind === 'part' || node.kind === 'chapter' || node.kind === 'scene') {
+      const doc = docs[node.id]
+      const words =
+        node.kind === 'scene' ? countWords(doc?.body ?? '') : subtreeWordCount(node, docs)
+      rows.push({
+        id: node.id,
+        kind: node.kind,
+        depth,
+        title: displayTitle(doc?.title ?? node.title),
+        synopsis: doc?.synopsis ?? '',
+        status: doc?.status ?? 'idea',
+        words,
+        pov: doc?.pov ?? '',
+        day: doc?.storyDay ?? '',
+      })
+    }
+    for (const child of node.children ?? []) walk(child, depth + 1)
+  }
+  for (const child of manuscript.children ?? []) walk(child, 0)
+  return rows
+}
+
+export function storyDayNumber(value: string): number | null {
+  const match = /^-?\d+(?:\.\d+)?/.exec(value.trim())
+  if (!match) return null
+  const number = Number(match[0])
+  return Number.isFinite(number) ? number : null
+}
+
+export interface TimelineRow {
+  id: string
+  chapter: string
+  title: string
+  day: string
+  dayNumber: number | null
+  pov: string
+  location: string
+  status: Status
+  words: number
+  synopsis: string
+}
+
+export function timelineRows(project: Project, docs: Record<string, Doc>): TimelineRow[] {
+  const manuscript = manuscriptOf(project)
+  if (!manuscript) return []
+  const rows: TimelineRow[] = []
+  const walk = (node: BinderNode, chapterTitle: string): void => {
+    const title = displayTitle(docs[node.id]?.title ?? node.title)
+    const nextChapter = node.kind === 'part' || node.kind === 'chapter' ? title : chapterTitle
+    if (node.kind === 'scene') {
+      const doc = docs[node.id]
+      rows.push({
+        id: node.id,
+        chapter: chapterTitle,
+        title,
+        day: doc?.storyDay ?? '',
+        dayNumber: storyDayNumber(doc?.storyDay ?? ''),
+        pov: doc?.pov ?? '',
+        location: doc?.location ?? '',
+        status: doc?.status ?? 'idea',
+        words: countWords(doc?.body ?? ''),
+        synopsis: doc?.synopsis ?? '',
+      })
+    }
+    for (const child of node.children ?? []) walk(child, nextChapter)
+  }
+  for (const child of manuscript.children ?? []) walk(child, '')
+  return rows.sort((a, b) => {
+    if (a.dayNumber === null && b.dayNumber === null) return 0
+    if (a.dayNumber === null) return 1
+    if (b.dayNumber === null) return -1
+    return a.dayNumber - b.dayNumber
+  })
 }

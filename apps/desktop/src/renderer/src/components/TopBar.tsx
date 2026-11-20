@@ -7,6 +7,11 @@ export function TopBar(): JSX.Element {
   const words = project ? manuscriptWordCount(project, state.docs) : 0
   const saveLabel =
     state.saveState === 'saving' ? 'Saving' : state.saveState === 'error' ? 'Not saved' : state.saveState === 'saved' ? 'Saved' : ''
+  const goal = project?.wordGoal ?? 0
+  const goalLabel =
+    goal > 0 ? `${formatWords(words)} · ${Math.min(100, Math.round((words / goal) * 100))}% of goal` : formatWords(words)
+  const unresolved = state.comments.filter((comment) => !comment.resolved).length
+  const commentsLabel = unresolved ? `Comments (${unresolved})` : 'Comments'
 
   return (
     <header className="topbar">
@@ -26,12 +31,48 @@ export function TopBar(): JSX.Element {
             </button>
             <button
               type="button"
+              className={state.mode === 'outline' ? 'on' : ''}
+              onClick={() => controller.setMode('outline')}
+            >
+              Outline
+            </button>
+            <button
+              type="button"
               className={state.mode === 'cork' ? 'on' : ''}
               onClick={() => controller.setMode('cork')}
             >
               Corkboard
             </button>
           </div>
+          <button type="button" className="btn small quiet" onClick={() => controller.setSearchOpen(true)}>
+            Search
+          </button>
+          <button type="button" className="btn small quiet" onClick={() => controller.setHistoryOpen(true)}>
+            History
+          </button>
+          <button
+            type="button"
+            className={state.commentsOpen ? 'btn small' : 'btn small quiet'}
+            onClick={() => controller.setCommentsOpen(!state.commentsOpen)}
+          >
+            {commentsLabel}
+          </button>
+          <button type="button" className="btn small quiet" onClick={controller.toggleTheme}>
+            {state.theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
+          <button type="button" className="btn small quiet" onClick={() => controller.setStatsOpen(true)}>
+            Stats
+          </button>
+          <button
+            type="button"
+            className={state.inspector ? 'btn small' : 'btn small quiet'}
+            aria-pressed={state.inspector}
+            onClick={controller.toggleInspector}
+            disabled={state.mode !== 'write'}
+            title="Show the details panel"
+          >
+            Details
+          </button>
           <button type="button" className={state.focus ? 'btn small' : 'btn small quiet'} onClick={controller.toggleFocus}>
             {state.focus ? 'Show binder' : 'Focus'}
           </button>
@@ -39,7 +80,7 @@ export function TopBar(): JSX.Element {
             Compile
           </button>
           <div className="top-status">
-            <span>{formatWords(words)}</span>
+            <span>{goalLabel}</span>
             <span className="save-state" aria-live="polite">
               {saveLabel}
             </span>

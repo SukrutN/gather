@@ -26,11 +26,17 @@ export function Corkboard(): JSX.Element {
             const doc = state.docs[scene.id]
             const synopsis = doc?.synopsis.trim()
             const status = doc?.status ?? 'idea'
+            const povName = doc?.pov ? (state.docs[doc.pov]?.title?.trim() ?? '') : ''
+            const day = doc?.storyDay.trim() ?? ''
             return (
               <button key={scene.id} className="card" type="button" onClick={() => controller.select(scene.id)}>
                 <span className={`stamp ${status}`}>{statusLabel(status)}</span>
                 <h3>{displayTitle(doc?.title ?? scene.title)}</h3>
                 <p>{synopsis || 'No synopsis yet.'}</p>
+                <span className="card-chips">
+                  {povName ? <em>{povName}</em> : null}
+                  {day ? <em>{/^day/i.test(day) ? day : `day ${day}`}</em> : null}
+                </span>
                 <span className="card-words">{formatWords(countWords(doc?.body ?? ''))}</span>
               </button>
             )

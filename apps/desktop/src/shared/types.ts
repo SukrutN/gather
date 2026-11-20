@@ -13,6 +13,8 @@ export const KINDS = [
   'place',
   'notes',
   'note',
+  'research',
+  'file',
 ] as const
 
 export type Kind = (typeof KINDS)[number]
@@ -44,6 +46,8 @@ export interface Project {
   threads: PlotThread[]
   created: string
   modified: string
+  /** Net words written per local day, keyed like "2026-01-08". */
+  history: Record<string, number>
   binder: BinderNode[]
 }
 
@@ -73,6 +77,7 @@ export interface Doc {
   sense: string
   control: string
   relationships: Relationship[]
+  keywords: string[]
   extra: ExtraField[]
 }
 
@@ -96,14 +101,20 @@ export interface TextExport {
   data: string
 }
 
-export interface EpubFile {
+/** One text file inside a package the desktop app writes out (EPUB, DOCX). */
+export interface PackagedFile {
   path: string
   text: string
 }
 
 export interface EpubExport {
   defaultName: string
-  files: EpubFile[]
+  files: PackagedFile[]
+}
+
+export interface DocxExport {
+  defaultName: string
+  files: PackagedFile[]
 }
 
 export interface PdfExport {
@@ -118,6 +129,75 @@ export interface SnapshotInfo {
   savedAt: string
 }
 
+/* ------------------------------------------------------------------ */
+/* Versions                                                           */
+/* ------------------------------------------------------------------ */
+
+/** One project-wide checkpoint. Doc ids map to blob hashes; null means deleted. */
+export interface VersionInfo {
+  id: string
+  savedAt: string
+  /** Empty for automatic checkpoints. */
+  message: string
+  /** Blob hash of the project.json content (without modified/history). */
+  project: string
+  docs: Record<string, string | null>
+}
+
+export interface KeepVersionPayload {
+  message: string
+  /** Serialized project.json content. */
+  project: string
+  docs: Array<{ id: string; markdown: string }>
+}
+
+/* ------------------------------------------------------------------ */
+/* Comments                                                           */
+/* ------------------------------------------------------------------ */
+
+export interface CommentReply {
+  id: string
+  author: string
+  body: string
+  savedAt: string
+}
+
+export interface Comment {
+  id: string
+  docId: string
+  author: string
+  body: string
+  savedAt: string
+  resolved: boolean
+  /** Quoted text the comment was made on, so it survives later edits. */
+  excerpt: string
+  replies: CommentReply[]
+}
+
+export interface CommentsFile {
+  format: 'gather-comments'
+  version: 1
+  comments: Comment[]
+}
+
+/* ------------------------------------------------------------------ */
+/* Updates                                                            */
+/* ------------------------------------------------------------------ */
+
+export type UpdateState =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'none'; version: string }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string }
+
+/** A cheap read of the project folder: what changed, and any sync conflicts. */
+export interface ProjectStatus {
+  fingerprint: string
+  conflicts: number
+}
+
 export interface SearchHit {
   id: string
   title: string
@@ -125,20 +205,45 @@ export interface SearchHit {
   snippet: string
 }
 
-export type MenuAction = 'new' | 'open' | 'sample' | 'compile' | 'focus' | 'save'
+export type MenuAction =
+  | 'new'
+  | 'open'
+  | 'sample'
+  | 'compile'
+  | 'focus'
+  | 'save'
+  | 'search'
+  | 'theme'
+  | 'import'
+  | 'backup'
 
 export interface GatherApi {
   pickDirectory: (purpose: DirectoryPurpose) => Promise<string | null>
   projectExists: (dir: string) => Promise<boolean>
-  loadProject: (dir: string) => Promise<{ project: Project; documents: DocumentFile[] }>
+  loadProject: (dir: string) => Promise<{ project: Project; documents: DocumentFile[]; comments: Comment[] }>
   saveProject: (dir: string, bundle: SaveBundle) => Promise<void>
+  saveComments: (dir: string, comments: Comment[]) => Promise<void>
+  keepVersion: (dir: string, payload: KeepVersionPayload) => Promise<VersionInfo[]>
+  listVersions: (dir: string) => Promise<VersionInfo[]>
+  readVersionDoc: (dir: string, versionId: string, docId: string) => Promise<string>
+  readVersionProject: (dir: string, versionId: string) => Promise<string>
+  relaunchUpdate: () => Promise<void>
+  onUpdateState: (handler: (state: UpdateState) => void) => () => void
+  projectStatus: (dir: string) => Promise<ProjectStatus>
+  pickImportFile: () => Promise<{ name: string; text: string } | null>
+  backupProject: (dir: string) => Promise<string | null>
+  researchAdd: (dir: string) => Promise<string | null>
+  researchOpen: (dir: string, name: string) => Promise<void>
+  researchReveal: (dir: string, name: string) => Promise<void>
+  researchRemove: (dir: string, name: string) => Promise<void>
   saveText: (request: TextExport) => Promise<string | null>
   saveEpub: (request: EpubExport) => Promise<string | null>
+  saveDocx: (request: DocxExport) => Promise<string | null>
   savePdf: (request: PdfExport) => Promise<string | null>
   setTitle: (title: string) => Promise<void>
   listSnapshots: (dir: string, id: string) => Promise<SnapshotInfo[]>
   keepSnapshot: (dir: string, id: string, markdown: string) => Promise<void>
   readSnapshot: (dir: string, id: string, name: string) => Promise<string>
   onMenu: (handler: (action: MenuAction) => void) => () => void
-  onOpenFolder: (handler: (dir: string) => void) => () => void
+  launchDir: () => Promise<string | null>
 }

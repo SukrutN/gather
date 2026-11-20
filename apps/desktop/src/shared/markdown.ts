@@ -20,6 +20,7 @@ const KNOWN = new Set([
   'sense',
   'control',
   'link',
+  'keyword',
 ])
 
 export function isStatus(value: string | undefined): value is Status {
@@ -99,7 +100,12 @@ export function serializeDocument(doc: Doc): string {
     'sense',
     'control',
     'link',
+    'keyword',
   ])
+  for (const word of doc.keywords) {
+    const keyword = word.trim()
+    if (keyword) lines.push(`keyword: ${quote(keyword)}`)
+  }
   for (const field of doc.extra) {
     if (written.has(field.key) || !/^[A-Za-z][A-Za-z0-9_-]*$/.test(field.key)) continue
     lines.push(`${field.key}: ${quote(field.value)}`)
@@ -123,6 +129,7 @@ export function parseDocument(markdown: string, fallback: Doc): Doc {
   const map = new Map<string, string>()
   const extra: ExtraField[] = []
   const relationships: Relationship[] = []
+  const keywords: string[] = []
   for (const line of header.split('\n')) {
     if (!line.trim()) continue
     const match = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/.exec(line)
@@ -132,6 +139,11 @@ export function parseDocument(markdown: string, fallback: Doc): Doc {
     if (key === 'link') {
       const link = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*(.*)$/i.exec(value)
       if (link?.[1]) relationships.push({ characterId: link[1], note: (link[2] ?? '').trim() })
+      continue
+    }
+    if (key === 'keyword') {
+      const word = value.trim()
+      if (word) keywords.push(word)
       continue
     }
     if (KNOWN.has(key)) map.set(key, value)
@@ -160,6 +172,7 @@ export function parseDocument(markdown: string, fallback: Doc): Doc {
     sense: map.get('sense') ?? '',
     control: map.get('control') ?? '',
     relationships,
+    keywords,
     body,
     extra,
   }

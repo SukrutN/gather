@@ -19,6 +19,9 @@ const id = {
   hours: '6f0c2a10-1b2c-4d3e-8f01-000000000022',
   notes: '6f0c2a10-1b2c-4d3e-8f01-000000000030',
   rules: '6f0c2a10-1b2c-4d3e-8f01-000000000031',
+  threadHours: '6f0c2a10-1b2c-4d3e-8f01-000000000040',
+  threadLedger: '6f0c2a10-1b2c-4d3e-8f01-000000000041',
+  research: '6f0c2a10-1b2c-4d3e-8f01-000000000042',
 } as const
 
 function doc(partial: Pick<Doc, 'id' | 'kind' | 'title' | 'status'> & Partial<Doc>): Doc {
@@ -39,6 +42,7 @@ function doc(partial: Pick<Doc, 'id' | 'kind' | 'title' | 'status'> & Partial<Do
     sense: '',
     control: '',
     relationships: [],
+    keywords: [],
     extra: [],
     ...partial,
   }
@@ -54,9 +58,13 @@ export function createSample(): { project: Project; docs: Record<string, Doc> } 
     format: 'gather-project',
     version: 1,
     title: 'The Keep of Small Hours',
-    author: '',
-    wordGoal: 0,
-    threads: [],
+    author: 'N. Hale',
+    wordGoal: 30000,
+    threads: [
+      { id: id.threadHours, name: 'The slipped hour', color: '#6e2e2e' },
+      { id: id.threadLedger, name: 'Who signs for what', color: '#3f5344' },
+    ],
+    history: {},
     created: stamp,
     modified: stamp,
     binder: [
@@ -81,6 +89,7 @@ export function createSample(): { project: Project; docs: Record<string, Doc> } 
         node(id.hours, 'place', 'The Hours Drawer'),
       ]),
       node(id.notes, 'notes', 'Notes', [node(id.rules, 'note', 'Rules for the slipped hour')]),
+      node(id.research, 'research', 'Research'),
     ],
   }
 
@@ -98,6 +107,7 @@ export function createSample(): { project: Project; docs: Record<string, Doc> } 
       title: 'After Close',
       status: 'revised',
       synopsis: 'Leah’s shift begins when the public one ends.',
+      wordGoal: 1800,
     }),
     [id.keys]: doc({
       id: id.keys,
@@ -105,6 +115,10 @@ export function createSample(): { project: Project; docs: Record<string, Doc> } 
       title: 'Keys',
       status: 'revised',
       synopsis: 'Leah locks the street door and finds the evening clerk’s note.',
+      pov: id.leah,
+      location: id.library,
+      thread: id.threadHours,
+      storyDay: '1',
       body: `Leah Voss locked the street door at ten, and the building waited to see if she meant it. Pier Street still had traffic. Inside, the lamps over the newspapers dropped to their night setting, a yellower light that made the headlines look already historical.
 
 She hung her coat on the back of the office chair. The chair knew the difference between a short shift and a long one and complained only on the long ones. Tonight would be long. The returns bin had been left in a state of optimism by the evening clerk: two shelves, alphabetized, and a note that said only “Adel came back.”
@@ -117,6 +131,10 @@ Leah read the note twice. Mr. Adel returned books no one had checked out. He was
       title: 'The Drawer',
       status: 'draft',
       synopsis: 'A catalog drawer is labeled with hours instead of letters.',
+      pov: id.leah,
+      location: id.library,
+      thread: id.threadHours,
+      storyDay: '1',
       body: `The card catalog had been kept for school groups and for people who distrusted the computers. Most of the drawers said A–Am, Am–Az, and so on, in a hand that had not been young for a long time. The bottom drawer on the left said 12:00–1:00.
 
 Leah had asked about it her first month and been told it was a joke from a previous clerk. The drawer did not open for a joke. It opened for her, on nights when the note was waiting, and the cards inside were not titles. They were times. 12:10. 12:25. 12:40, written darker than the rest, as if someone had gone back over it.
@@ -129,6 +147,7 @@ She did not take a card. She closed the drawer with both hands, the way you clos
       title: 'Borrowed Time',
       status: 'draft',
       synopsis: 'An hour can be checked out, if you are willing to bring it back.',
+      wordGoal: 1200,
     }),
     [id.hour]: doc({
       id: id.hour,
@@ -136,6 +155,10 @@ She did not take a card. She closed the drawer with both hands, the way you clos
       title: 'One Slipped Hour',
       status: 'draft',
       synopsis: 'Leah checks out 12:40 a.m. and has until morning to bring it back.',
+      pov: id.leah,
+      location: id.library,
+      thread: id.threadHours,
+      storyDay: '2',
       body: `On Thursday she took the card. The slip she wrote was ordinary: name, date, and the title she invented because the system required one. She called it “A Short Geography of the Hour Between.” The computer accepted this without comment. The card catalog, which had opinions, did not.
 
 12:40 lasted forty minutes. She spent them at the table by the atlas stand, reading nothing, listening to the building settle. When the minute hand let go, the newspapers were still today’s. She put the card back before the morning clerk’s key touched the lock. The drawer shut like a mouth that had decided not to speak.`,
@@ -160,6 +183,10 @@ She did not take a card. She closed the drawer with both hands, the way you clos
       title: 'The Slip',
       status: 'idea',
       synopsis: 'Mr. Adel has already signed for a book that was never lent.',
+      pov: id.leah,
+      location: id.library,
+      thread: id.threadLedger,
+      storyDay: '3',
       body: `By the time Leah came in on Friday evening, the slip was in the bin. M. Adel, in the left-leaning hand, and tomorrow’s date. The title was hers: “A Short Geography of the Hour Between.” No one at the desk remembered typing it. The evening clerk had underlined the date and written, in the margin, “He said you would know.”
 
 Leah did know, and she wished she knew less. She went to the catalog and stood with her hand on the drawer and did not pull. Somewhere under the newspapers, a lamp clicked. She counted the rest of them. Fourteen. The one over the atlas stand was already lit.`,
@@ -171,6 +198,10 @@ Leah did know, and she wished she knew less. She went to the catalog and stood w
       status: 'revised',
       role: 'Night librarian',
       summary: 'Keeps the Pier Street library between close and open, and has started to suspect the catalog is keeping her.',
+      goal: 'Keep the night stack honest without ever admitting what the drawer lends.',
+      fear: 'That one night the drawer will not open for her at all.',
+      secret: 'She has already borrowed an hour she never signed for.',
+      relationships: [{ characterId: id.adel, note: 'Returns books no one lent; politeness as cover.' }],
       body: 'She counts the lamps when she is nervous. There are fourteen. She will not say which one belongs to the hours. She drinks tea she forgets to finish and leaves the bag in the cup, which the morning clerk has stopped mentioning.',
     }),
     [id.adel]: doc({
@@ -180,6 +211,10 @@ Leah did know, and she wished she knew less. She went to the catalog and stood w
       status: 'draft',
       role: 'Patron',
       summary: 'Returns books that were never lent, always before open, never with an explanation that survives a second question.',
+      goal: 'Return every borrowed thing before anyone notices it was gone.',
+      fear: 'Being asked the second question.',
+      secret: 'He is the hand that inked 12:40 twice.',
+      relationships: [{ characterId: id.leah, note: 'Leaves notes for her, never letters.' }],
       body: 'Handwriting leans left. He signs the slip M. Adel and dates it tomorrow. He is never in the reading room when the lamps are up. The evening clerk has seen him only from the stairs.',
     }),
     [id.library]: doc({
@@ -189,6 +224,8 @@ Leah did know, and she wished she knew less. She went to the catalog and stood w
       status: 'done',
       placeType: 'Civic building',
       summary: 'A brick library at the end of Pier Street, too large for the town and too loved to close.',
+      sense: 'Lamplight, dry paper, the radiator’s tick.',
+      control: 'The street door, and the staff door under the fire escape.',
       body: 'The night entrance is the staff door under the fire escape. The street door sticks in damp weather. The atlas stand is oak and has a wobble Leah has decided not to report, because a repair would move it, and she is not sure the drawer would approve.',
     }),
     [id.hours]: doc({
@@ -198,6 +235,8 @@ Leah did know, and she wished she knew less. She went to the catalog and stood w
       status: 'idea',
       placeType: 'Catalog drawer',
       summary: 'A card drawer labeled with times instead of letters. It should not open. It does, for Leah.',
+      sense: 'Graphite and the inside of a coat pocket.',
+      control: 'Only Leah. Not the morning clerk.',
       body: 'Bottom row, left side. The label is typed, not handwritten. The cards are times. Only 12:40 is inked twice. It smells faintly of graphite and of the inside of a coat pocket.',
     }),
     [id.rules]: doc({

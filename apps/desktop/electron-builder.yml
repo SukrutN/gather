@@ -1,0 +1,38 @@
+appId: studio.gather.desktop
+productName: Gather
+copyright: Copyright (c) Gather contributors
+
+# npm workspaces hoist electron to the repository root, where electron-builder
+# cannot discover it; state the version explicitly instead.
+electronVersion: 35.7.5
+
+directories:
+  output: release
+
+files:
+  - out/**
+
+asar: true
+
+compression: maximum
+
+win:
+  target:
+    - nsis
+    - portable
+  artifactName: Gather-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Gather-Setup-${version}.${ext}
+  deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: Gather-Portable-${version}.${ext}
+
+publish:
+  provider: github
+  owner: SukrutN
+  repo: gather
