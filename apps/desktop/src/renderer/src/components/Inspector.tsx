@@ -1,6 +1,7 @@
+import { parseDocument, serializeDocument } from '@shared/markdown'
 import { THREAD_COLORS, displayTitle, findNode } from '@shared/model'
-import type { BinderNode, Doc, Kind, PlotThread } from '@shared/types'
-import { useMemo, useState } from 'react'
+import type { BinderNode, Doc, Kind, PlotThread, SnapshotInfo } from '@shared/types'
+import { useEffect, useMemo, useState } from 'react'
 import { useStudio } from '../store'
 
 export function hasInspector(kind: Kind): boolean {
@@ -46,6 +47,30 @@ export function Inspector(): JSX.Element | null {
     <aside className="inspector" aria-label="Details">
       <div className="inspector-label">Details</div>
       <div className="inspector-scroll">
+        <div className="inspector-section">
+          <div className="inspector-label">Page</div>
+          <div className="page-actions">
+            <button
+              type="button"
+              className={state.pinnedId === doc.id ? 'btn small' : 'btn small quiet'}
+              aria-pressed={state.pinnedId === doc.id}
+              onClick={() => controller.togglePin(doc.id)}
+            >
+              {state.pinnedId === doc.id ? 'Pinned ✓' : 'Pin as reference'}
+            </button>
+            {node.kind === 'character' || node.kind === 'place' ? null : (
+              <button
+                type="button"
+                className={state.typewriter ? 'btn small' : 'btn small quiet'}
+                aria-pressed={state.typewriter}
+                onClick={controller.toggleTypewriter}
+              >
+                Typewriter
+              </button>
+            )}
+          </div>
+          <Snapshots doc={doc} />
+        </div>
         {node.kind === 'scene' ? (
           <>
             <Field label="POV">
@@ -356,5 +381,101 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span>{label}</span>
       {children}
     </label>
+  )
+}
+
+function Snapshots({ doc }: { doc: Doc }): JSX.Element {
+  const { state, controller } = useStudio()
+  const [open, setOpen] = useState(false)
+  const [list, setList] = useState<SnapshotInfo[]>([])
+  const [pending, setPending] = useState<string | null>(null)
+  const [version, setVersion] = useState(0)
+  const dir = state.dir
+
+  useEffect(() => {
+    if (!open || !dir || !window.gather) return
+    const gather = window.gather
+    let alive = true
+    void (async () => {
+      try {
+        const found = await gather.listSnapshots(dir, doc.id)
+        if (alive) setList(found)
+      } catch {
+        if (alive) setList([])
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [open, dir, doc.id, version])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  const keep = async (): Promise<void> => {
+    if (!dir || !window.gather) return
+    await window.gather.keepSnapshot(dir, doc.id, serializeDocument(doc))
+    setVersion((value) => value + 1)
+  }
+
+  const restore = async (name: string): Promise<void> => {
+    if (!dir || !window.gather) return
+    try {
+      const markdown = await window.gather.readSnapshot(dir, doc.id, name)
+      await window.gather.keepSnapshot(dir, doc.id, serializeDocument(doc))
+      const restored = parseDocument(markdown, doc)
+      controller.patchDoc(doc.id, restored)
+      setPending(null)
+      setOpen(false)
+    } catch {
+      setPending(null)
+    }
+  }
+
+  return (
+    <div className="snapshots">
+      <button type="button" className="btn small quiet" onClick={() => setOpen(!open)}>
+        Copies{list.length ? ` (${list.length})` : ''}
+      </button>
+      {open ? (
+        <div className="popover" role="dialog" aria-label="Copies of this page">
+          <button type="button" className="btn small" onClick={() => void keep()}>
+            Keep a copy now
+          </button>
+          {list.length === 0 ? (
+            <p className="hint">No copies yet.</p>
+          ) : (
+            <ul className="snapshot-list">
+              {list.map((item) => (
+                <li key={item.name}>
+                  <span>{item.savedAt}</span>
+                  {pending === item.name ? (
+                    <>
+                      <button type="button" className="btn small danger" onClick={() => void restore(item.name)}>
+                        Restore it
+                      </button>
+                      <button type="button" className="btn small quiet" onClick={() => setPending(null)}>
+                        Don’t
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn small quiet" onClick={() => setPending(item.name)}>
+                      Restore
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="hint">Restoring first keeps a copy of what is here now.</p>
+        </div>
+      ) : null}
+    </div>
   )
 }

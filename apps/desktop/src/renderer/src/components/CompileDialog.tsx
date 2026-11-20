@@ -15,14 +15,16 @@ import { useEffect, useRef, useState } from 'react'
 import { useStudio } from '../store'
 
 const FORMATS = [
-  { id: 'docx', label: 'Word' },
-  { id: 'markdown', label: 'Markdown' },
-  { id: 'html', label: 'HTML' },
-  { id: 'epub', label: 'EPUB' },
-  { id: 'pdf', label: 'PDF' },
+  { id: 'docx', label: 'Word', hint: 'A .docx for editors and publishers' },
+  { id: 'markdown', label: 'Markdown', hint: 'One plain .md file' },
+  { id: 'html', label: 'HTML', hint: 'A self-contained web page' },
+  { id: 'epub', label: 'EPUB', hint: 'A reflowable EPUB 3 book' },
+  { id: 'pdf', label: 'PDF', hint: 'Print-ready pages' },
 ] as const
 
 type FormatId = (typeof FORMATS)[number]['id']
+
+const PRESET_FORMATS: ReadonlySet<FormatId> = new Set(['docx', 'html', 'pdf'] as const)
 
 export function CompileDialog(): JSX.Element | null {
   const { state, controller } = useStudio()
@@ -33,12 +35,14 @@ export function CompileDialog(): JSX.Element | null {
   const [format, setFormat] = useState<FormatId>('pdf')
   const [preset, setPreset] = useState<PrintPresetId>('6x9')
   const [options, setOptions] = useState<CompileOptions>(DEFAULT_COMPILE_OPTIONS)
+  const [step, setStep] = useState<1 | 2>(1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (state.compileOpen && !wasOpen.current && project) {
       setIncluded(new Set(compilableIds(project)))
+      setStep(1)
       setError(null)
     }
     wasOpen.current = state.compileOpen
@@ -56,6 +60,9 @@ export function CompileDialog(): JSX.Element | null {
   if (!open || !project) return null
   const manuscript = manuscriptOf(project)
   if (!manuscript) return null
+
+  const currentFormat = FORMATS.find((item) => item.id === format) ?? FORMATS[4]!
+  const presetApplies = PRESET_FORMATS.has(format)
 
   const toggle = (ids: string[]): void => {
     setIncluded((current) => {
@@ -122,45 +129,79 @@ export function CompileDialog(): JSX.Element | null {
     }
   }
 
+  if (step === 1) {
+    return (
+      <div className="scrim">
+        <div className="dialog compile-dialog" role="dialog" aria-modal="true" aria-labelledby="compile-title">
+          <header>
+            <h2 id="compile-title">Export</h2>
+            <p>What kind of file do you need?</p>
+          </header>
+          <div className="format-tiles" role="radiogroup" aria-label="Format">
+            {FORMATS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="radio"
+                aria-checked={format === item.id}
+                className={format === item.id ? 'format-tile on' : 'format-tile'}
+                onClick={() => {
+                  setFormat(item.id)
+                  setStep(2)
+                }}
+              >
+                <strong>{item.label}</strong>
+                <small>{item.hint}</small>
+              </button>
+            ))}
+          </div>
+          <footer className="dialog-actions">
+            <button type="button" className="btn quiet" onClick={() => controller.setCompileOpen(false)}>
+              Cancel
+            </button>
+          </footer>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="scrim">
       <div className="dialog compile-dialog" role="dialog" aria-modal="true" aria-labelledby="compile-title">
         <header>
-          <h2 id="compile-title">Export</h2>
-          <p>Checked items export in binder order. Chapters start on a new page in Word, HTML, and PDF.</p>
+          <button type="button" className="btn small quiet compile-back" onClick={() => setStep(1)}>
+            ← Formats
+          </button>
+          <h2 id="compile-title">Export {currentFormat.label}</h2>
+          <p>
+            {presetApplies
+              ? 'Checked pages export in binder order. Chapters start on a new page.'
+              : 'Checked pages export in binder order.'}
+          </p>
         </header>
-        <div className="compile-grid">
-          <fieldset>
-            <legend>Format</legend>
-            {FORMATS.map((item) => (
-              <label key={item.id}>
-                <input
-                  type="radio"
-                  name="format"
-                  checked={format === item.id}
-                  onChange={() => setFormat(item.id)}
-                />
-                {item.label}
-              </label>
-            ))}
+
+        {presetApplies ? (
+          <fieldset className="compile-section">
+            <legend>Page size</legend>
+            <div className="compile-choices">
+              {(Object.keys(PRINT_PRESETS) as PrintPresetId[]).map((id) => (
+                <label key={id}>
+                  <input type="radio" name="preset" checked={preset === id} onChange={() => setPreset(id)} />
+                  <span>
+                    {PRINT_PRESETS[id].label}
+                    <small>{PRINT_PRESETS[id].detail}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
           </fieldset>
-          <fieldset>
-            <legend>Print preset</legend>
-            {(Object.keys(PRINT_PRESETS) as PrintPresetId[]).map((id) => (
-              <label key={id}>
-                <input type="radio" name="preset" checked={preset === id} onChange={() => setPreset(id)} />
-                <span>
-                  {PRINT_PRESETS[id].label}
-                  <small>{PRINT_PRESETS[id].detail}</small>
-                </span>
-              </label>
-            ))}
-            <p className="hint">Page size is for Word, PDF, and HTML. EPUB reflows.</p>
-          </fieldset>
-        </div>
-        <fieldset className="compile-formatting">
+        ) : (
+          <p className="hint compile-note">{currentFormat.label} reflows, so no page size applies.</p>
+        )}
+
+        <fieldset className="compile-section">
           <legend>Formatting</legend>
-          <div className="compile-formatting-grid">
+          <div className="compile-checks">
             <label>
               <input
                 type="checkbox"
@@ -191,8 +232,10 @@ export function CompileDialog(): JSX.Element | null {
                 checked={options.dedication}
                 onChange={(event) => setOptions({ ...options, dedication: event.target.checked })}
               />
-              Dedication page (from a note titled “Dedication”)
+              Dedication (from a note titled “Dedication”)
             </label>
+          </div>
+          <div className="compile-choices compile-choices-row">
             <div className="compile-choice">
               <span>Numbering</span>
               <label>
@@ -255,6 +298,7 @@ export function CompileDialog(): JSX.Element | null {
             </div>
           </div>
         </fieldset>
+
         <div className="compile-tree">
           <div className="compile-tree-tools">
             <button type="button" className="btn small quiet" onClick={() => setIncluded(new Set(compilableIds(project)))}>
@@ -276,7 +320,7 @@ export function CompileDialog(): JSX.Element | null {
             Cancel
           </button>
           <button type="button" className="btn" disabled={busy || included.size === 0} onClick={() => void exportBook()}>
-            {busy ? 'Exporting…' : 'Export'}
+            {busy ? 'Exporting…' : `Export ${currentFormat.label}`}
           </button>
         </footer>
       </div>

@@ -1,6 +1,15 @@
-import { canDelete, canMove, displayTitle, isContainer, kindLabel, moveNode } from '@shared/model'
+import {
+  addChoicesForSelection,
+  canDelete,
+  canMove,
+  displayTitle,
+  isContainer,
+  isRootKind,
+  kindLabel,
+  moveNode,
+} from '@shared/model'
 import type { BinderNode } from '@shared/types'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStudio } from '../store'
 
 type Placement = 'inside' | 'after'
@@ -10,54 +19,47 @@ interface Hint {
   placement: Placement
 }
 
+type Menu = { kind: 'add' | 'row'; id: string } | null
+
 const dragId = { current: null as string | null }
 
 export function Binder(): JSX.Element | null {
-  const { state, controller, choices } = useStudio()
+  const { state } = useStudio()
   const [hint, setHint] = useState<Hint | null>(null)
+  const [menu, setMenu] = useState<Menu>(null)
+
+  useEffect(() => {
+    if (!menu) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setMenu(null)
+    }
+    const onDown = (event: MouseEvent): void => {
+      const target = event.target
+      if (
+        target instanceof Element &&
+        (target.closest('.row-actions') || target.closest('.menu-popover'))
+      ) {
+        return
+      }
+      setMenu(null)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [menu])
+
   if (!state.project) return null
-  const binder = state.project.binder
-  const selected = state.selectedId
-  const removable = selected ? canDelete(binder, selected) : false
-  const up = selected ? canMove(binder, selected, -1) : false
-  const down = selected ? canMove(binder, selected, 1) : false
 
   return (
     <aside className="binder">
       <div className="binder-label">Binder</div>
       <div className="binder-scroll" role="tree" aria-label="Binder">
-        {binder.map((node) => (
-          <TreeRow key={node.id} node={node} depth={0} hint={hint} setHint={setHint} />
+        {state.project.binder.map((node) => (
+          <TreeRow key={node.id} node={node} depth={0} hint={hint} setHint={setHint} menu={menu} setMenu={setMenu} />
         ))}
-      </div>
-      <div className="binder-actions">
-        {choices.map((choice) => (
-          <button
-            key={`${choice.parentId}-${choice.kind}`}
-            className="btn small"
-            type="button"
-            onClick={() => controller.add(choice.parentId, choice.kind)}
-          >
-            {choice.label}
-          </button>
-        ))}
-        <button className="btn small quiet" type="button" disabled={!up} onClick={() => selected && controller.move(selected, -1)}>
-          Up
-        </button>
-        <button className="btn small quiet" type="button" disabled={!down} onClick={() => selected && controller.move(selected, 1)}>
-          Down
-        </button>
-        <button
-          className="btn small quiet"
-          type="button"
-          disabled={!removable}
-          onClick={() => selected && controller.duplicate(selected)}
-        >
-          Duplicate
-        </button>
-        <button className="btn small danger" type="button" disabled={!removable} onClick={() => selected && controller.askDelete(selected)}>
-          Remove
-        </button>
       </div>
     </aside>
   )
@@ -68,17 +70,28 @@ function TreeRow({
   depth,
   hint,
   setHint,
+  menu,
+  setMenu,
 }: {
   node: BinderNode
   depth: number
   hint: Hint | null
   setHint: (hint: Hint | null) => void
+  menu: Menu
+  setMenu: (menu: Menu) => void
 }): JSX.Element {
   const { state, controller } = useStudio()
   const selected = state.selectedId === node.id
   const container = isContainer(node.kind)
   const collapsed = Boolean(state.collapsed[node.id])
+  const root = isRootKind(node.kind)
+  const binder = state.project?.binder ?? []
+  const choices = addChoicesForSelection(binder, node.id)
   const placement: Placement = container ? 'inside' : 'after'
+  const removable = canDelete(binder, node.id)
+  const duplicable = removable && node.kind !== 'file'
+  const up = canMove(binder, node.id, -1)
+  const down = canMove(binder, node.id, 1)
   const dropInside = hint?.id === node.id && hint.placement === 'inside'
   const dropAfter = hint?.id === node.id && hint.placement === 'after'
 
@@ -91,6 +104,10 @@ function TreeRow({
   if (selected) classes.push('selected')
   if (dropInside) classes.push('drop-inside')
   if (dropAfter) classes.push('drop-after')
+
+  const title = displayTitle(node.title)
+  const addOpen = menu?.kind === 'add' && menu.id === node.id
+  const rowOpen = menu?.kind === 'row' && menu.id === node.id
 
   return (
     <div className="tree-branch">
@@ -134,7 +151,7 @@ function TreeRow({
             className="twist"
             type="button"
             aria-expanded={!collapsed}
-            aria-label={collapsed ? `Expand ${displayTitle(node.title)}` : `Collapse ${displayTitle(node.title)}`}
+            aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
             onClick={() => controller.toggleCollapse(node.id)}
           >
             {collapsed ? '▸' : '▾'}
@@ -148,13 +165,82 @@ function TreeRow({
           aria-current={selected ? 'true' : undefined}
           onClick={() => controller.select(node.id)}
         >
-          <span className="row-title">{displayTitle(node.title)}</span>
+          <span className="row-title">{title}</span>
           <span className="row-kind">{kindLabel(node.kind)}</span>
         </button>
+        <span className="row-actions">
+          <button
+            className="row-action"
+            type="button"
+            aria-label={`Add near ${title}`}
+            disabled={choices.length === 0}
+            onClick={() => setMenu(addOpen ? null : { kind: 'add', id: node.id })}
+          >
+            +
+          </button>
+          {root ? null : (
+            <button
+              className="row-action"
+              type="button"
+              aria-label={`Row actions for ${title}`}
+              onClick={() => setMenu(rowOpen ? null : { kind: 'row', id: node.id })}
+            >
+              ⋯
+            </button>
+          )}
+        </span>
+        {addOpen ? (
+          <div className="menu-popover row-menu" role="menu" aria-label="Add">
+            {choices.map((choice) => (
+              <button
+                key={`${choice.parentId}-${choice.kind}`}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  controller.add(choice.parentId, choice.kind)
+                  setMenu(null)
+                }}
+              >
+                <span>{choice.label}</span>
+                <span className="menu-check" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {rowOpen ? (
+          <div className="menu-popover row-menu" role="menu" aria-label="Row actions">
+            <button type="button" role="menuitem" disabled={!up} onClick={() => { controller.move(node.id, -1); setMenu(null) }}>
+              <span>Move up</span>
+              <span className="menu-check" />
+            </button>
+            <button type="button" role="menuitem" disabled={!down} onClick={() => { controller.move(node.id, 1); setMenu(null) }}>
+              <span>Move down</span>
+              <span className="menu-check" />
+            </button>
+            <button type="button" role="menuitem" disabled={!duplicable} onClick={() => { controller.duplicate(node.id); setMenu(null) }}>
+              <span>Duplicate</span>
+              <span className="menu-check" />
+            </button>
+            <div className="menu-separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="danger"
+              disabled={!removable}
+              onClick={() => {
+                controller.askDelete(node.id)
+                setMenu(null)
+              }}
+            >
+              <span>Remove…</span>
+              <span className="menu-check" />
+            </button>
+          </div>
+        ) : null}
       </div>
       {container && !collapsed
         ? (node.children ?? []).map((child) => (
-            <TreeRow key={child.id} node={child} depth={depth + 1} hint={hint} setHint={setHint} />
+            <TreeRow key={child.id} node={child} depth={depth + 1} hint={hint} setHint={setHint} menu={menu} setMenu={setMenu} />
           ))
         : null}
     </div>

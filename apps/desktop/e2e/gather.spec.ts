@@ -141,7 +141,7 @@ it('shows scene metadata in the inspector', async () => {
 })
 
 it('keeps a snapshot copy of the current page', async () => {
-  await window.locator('.doc-meta-tools').getByRole('button', { name: /Copies/ }).click()
+  await window.locator('.inspector').getByRole('button', { name: /Copies/ }).click()
   await visible(window.locator('.popover'))
   await window.getByRole('button', { name: 'Keep a copy now' }).click()
   await visible(window.locator('.snapshot-list li').first())
@@ -152,25 +152,33 @@ it('keeps a snapshot copy of the current page', async () => {
   await hidden(window.locator('.popover'))
 })
 
-it('duplicates the selected scene with a copy suffix', async () => {
-  await window.getByRole('button', { name: 'Duplicate' }).click()
+it('duplicates a scene from its row actions', async () => {
+  const row = window.locator('.row').filter({ has: window.locator('.row-title', { hasText: /^Lamplight$/ }) })
+  await row.hover()
+  await row.getByRole('button', { name: 'Row actions for Lamplight' }).click()
+  await window.getByRole('menuitem', { name: 'Duplicate' }).click()
   await visible(window.locator('.row-name', { hasText: 'Lamplight (copy)' }))
   await expect
     .poll(async () => window.locator('.doc-title').inputValue(), { timeout: 10_000 })
     .toBe('Lamplight (copy)')
 })
 
-it('opens the compile dialog with the Word format', async () => {
+it('walks the compile flow to the Word options', async () => {
   await window.getByRole('button', { name: 'Compile' }).click()
   const dialog = await visible(window.locator('.compile-dialog'))
-  expect(await dialog.textContent()).toContain('Word')
+  expect(await dialog.textContent()).toContain('What kind of file do you need?')
+  await dialog.getByRole('radio', { name: 'Word' }).click()
+  expect(await dialog.textContent()).toContain('Page size')
   expect(await dialog.locator('.check-node').count()).toBeGreaterThanOrEqual(4)
   await window.keyboard.press('Escape')
   await hidden(dialog)
 })
 
-it('persists a button reorder to project.json', async () => {
-  await window.getByRole('button', { name: 'Down' }).click()
+it('persists a row reorder to project.json', async () => {
+  const row = window.locator('.row').filter({ has: window.locator('.row-title', { hasText: /^Lamplight \(copy\)$/ }) })
+  await row.hover()
+  await row.getByRole('button', { name: 'Row actions for Lamplight (copy)' }).click()
+  await window.getByRole('menuitem', { name: 'Move down' }).click()
   try {
     await expect
       .poll(
@@ -335,7 +343,7 @@ it('wraps a selection in bold with Ctrl+B and persists it', async () => {
 it('pins a page as a reference while writing elsewhere', async () => {
   const body = window.locator('textarea.manuscript')
   await body.waitFor({ state: 'visible' })
-  await window.getByRole('button', { name: 'Pin as reference' }).click()
+  await window.locator('.inspector').getByRole('button', { name: 'Pin as reference' }).click()
   await window.locator('.row-title', { hasText: /^The Ledger$/ }).click()
   await visible(window.locator('.quickref'))
   expect(await window.locator('.quickref').textContent()).toContain('lamps')
@@ -347,6 +355,7 @@ it('pins a page as a reference while writing elsewhere', async () => {
 it('offers compile formatting choices', async () => {
   await window.getByRole('button', { name: 'Compile' }).click()
   const dialog = await visible(window.locator('.compile-dialog'))
+  await dialog.getByRole('radio', { name: 'Word' }).click()
   const sceneTitles = dialog.getByRole('checkbox', { name: 'Print scene titles' })
   await sceneTitles.check()
   expect(await sceneTitles.isChecked()).toBe(true)
