@@ -1053,6 +1053,81 @@ button { cursor: pointer; }
 
 .banner .btn, .update-bar .btn { color: var(--banner-ink); }
 
+/* Topbar menu */
+
+.topbar-menu { position: relative; }
+
+.menu-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 8;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 30px rgba(20, 16, 10, 0.28);
+  min-width: 210px;
+  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-popover button {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: baseline;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 8px 14px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.85rem;
+}
+
+.menu-popover button:hover { background: var(--row-selected); }
+
+.menu-check { color: var(--oxblood); flex: none; }
+
+.menu-separator { border-top: 1px solid var(--line); margin: 6px 0; }
+
+/* Drag affordance */
+
+.binder .row[draggable='true'] { cursor: grab; }
+
+.binder .row[draggable='true']:active { cursor: grabbing; }
+
+/* Motion — quiet, quick, and off entirely for reduced motion */
+
+@media (prefers-reduced-motion: no-preference) {
+  .btn,
+  .segmented button,
+  .row,
+  .row-name,
+  .index-list button,
+  .changed-list button,
+  .version-row,
+  .search-results button,
+  .outline-row,
+  .menu-popover button {
+    transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+  }
+  .card { transition: box-shadow 0.14s ease; }
+  .card:hover { box-shadow: 3px 4px 0 rgba(62, 38, 12, 0.26); }
+  .scrim { animation: gather-fade 0.14s ease; }
+  .dialog,
+  .menu-popover,
+  .popover { animation: gather-rise 0.15s ease; }
+}
+
+@keyframes gather-fade {
+  from { opacity: 0; }
+}
+
+@keyframes gather-rise {
+  from { opacity: 0; transform: translateY(5px); }
+}
+
 /* Banner, dialogs */
 
 .banner {

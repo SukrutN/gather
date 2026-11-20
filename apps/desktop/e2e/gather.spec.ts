@@ -74,7 +74,8 @@ it('edits the body, autosaves to disk, and records the session', async () => {
 })
 
 it('shows stats with today’s words and the goal', async () => {
-  await window.getByRole('button', { name: 'Stats' }).click()
+  await window.getByRole('button', { name: 'View ▾' }).click()
+  await window.getByRole('menuitem', { name: 'Writing stats…' }).click()
   const dialog = await visible(window.locator('.stats-dialog'))
   expect(await dialog.textContent()).toContain('Today')
   expect(await dialog.locator('.stats-grid dd').first().textContent()).toBe('5 words')
@@ -84,15 +85,16 @@ it('shows stats with today’s words and the goal', async () => {
 })
 
 it('toggles the theme and back', async () => {
-  const themeButton = window.locator('.topbar').getByRole('button', { name: /^(Dark|Light)$/ })
-  await visible(themeButton)
-  const label = (await themeButton.textContent())?.trim()
-  const initial = label === 'Dark' ? 'light' : 'dark'
-  await themeButton.click()
+  const viewButton = window.getByRole('button', { name: 'View ▾' })
+  await viewButton.click()
+  const darkItem = window.getByRole('menuitemcheckbox', { name: 'Dark mode' })
+  const initial = (await darkItem.getAttribute('aria-checked')) === 'true' ? 'dark' : 'light'
+  await darkItem.click()
   await expect
     .poll(async () => window.evaluate(() => document.documentElement.dataset.theme), { timeout: 10_000 })
     .toBe(initial === 'light' ? 'dark' : 'light')
-  await themeButton.click()
+  await viewButton.click()
+  await darkItem.click()
   await expect
     .poll(async () => window.evaluate(() => document.documentElement.dataset.theme), { timeout: 10_000 })
     .toBe(initial)
@@ -234,7 +236,8 @@ it('keeps a named version and restores an earlier page', async () => {
   await expect
     .poll(async () => readFile(join(dir, 'history', 'versions.json'), 'utf8'), { timeout: 15_000 })
     .toContain('gather-history')
-  await window.getByRole('button', { name: 'History' }).click()
+  await window.getByRole('button', { name: 'View ▾' }).click()
+  await window.getByRole('menuitem', { name: 'Project history…' }).click()
   const dialog = await visible(window.locator('.history-dialog'))
   await dialog.locator('.history-keep input').fill('Before the rewrite')
   await dialog.getByRole('button', { name: 'Keep a version now' }).click()
@@ -288,9 +291,12 @@ it('reloads the project when files change on disk', async () => {
 
 it('saves custom fields from the inspector', async () => {
   await window.locator('.row-title', { hasText: /^Lamplight$/ }).first().click()
-  const details = window.getByRole('button', { name: 'Details' })
-  if ((await details.getAttribute('aria-pressed')) !== 'true') {
-    await details.click()
+  await window.getByRole('button', { name: 'View ▾' }).click()
+  const detailsItem = window.getByRole('menuitemcheckbox', { name: 'Details panel' })
+  if ((await detailsItem.getAttribute('aria-checked')) !== 'true') {
+    await detailsItem.click()
+  } else {
+    await window.keyboard.press('Escape')
   }
   const inspector = await visible(window.locator('.inspector'))
   await inspector.getByRole('button', { name: 'Add a field' }).click()

@@ -216,6 +216,8 @@ export type MenuAction =
   | 'theme'
   | 'import'
   | 'backup'
+  | 'stats'
+  | 'history'
 
 export interface GatherApi {
   pickDirectory: (purpose: DirectoryPurpose) => Promise<string | null>

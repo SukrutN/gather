@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { displayTitle, formatWords, manuscriptWordCount } from '@shared/model'
 import { useStudio } from '../store'
 
@@ -47,9 +48,6 @@ export function TopBar(): JSX.Element {
           <button type="button" className="btn small quiet" onClick={() => controller.setSearchOpen(true)}>
             Search
           </button>
-          <button type="button" className="btn small quiet" onClick={() => controller.setHistoryOpen(true)}>
-            History
-          </button>
           <button
             type="button"
             className={state.commentsOpen ? 'btn small' : 'btn small quiet'}
@@ -57,25 +55,7 @@ export function TopBar(): JSX.Element {
           >
             {commentsLabel}
           </button>
-          <button type="button" className="btn small quiet" onClick={controller.toggleTheme}>
-            {state.theme === 'dark' ? 'Light' : 'Dark'}
-          </button>
-          <button type="button" className="btn small quiet" onClick={() => controller.setStatsOpen(true)}>
-            Stats
-          </button>
-          <button
-            type="button"
-            className={state.inspector ? 'btn small' : 'btn small quiet'}
-            aria-pressed={state.inspector}
-            onClick={controller.toggleInspector}
-            disabled={state.mode !== 'write'}
-            title="Show the details panel"
-          >
-            Details
-          </button>
-          <button type="button" className={state.focus ? 'btn small' : 'btn small quiet'} onClick={controller.toggleFocus}>
-            {state.focus ? 'Show binder' : 'Focus'}
-          </button>
+          <ViewMenu />
           <button type="button" className="btn small quiet" onClick={() => controller.setCompileOpen(true)}>
             Compile
           </button>
@@ -92,5 +72,87 @@ export function TopBar(): JSX.Element {
         </div>
       )}
     </header>
+  )
+}
+
+/** The rare controls, grouped behind one menu instead of crowding the bar. */
+function ViewMenu(): JSX.Element {
+  const { state, controller } = useStudio()
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (event: MouseEvent): void => {
+      if (boxRef.current && !boxRef.current.contains(event.target as Node)) setOpen(false)
+    }
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const toggle = (label: string, checked: boolean, onClick: () => void): JSX.Element => (
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      onClick={() => {
+        onClick()
+        setOpen(false)
+      }}
+    >
+      <span>{label}</span>
+      <span className="menu-check">{checked ? '✓' : ''}</span>
+    </button>
+  )
+
+  return (
+    <div className="topbar-menu" ref={boxRef}>
+      <button
+        type="button"
+        className="btn small quiet"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        View ▾
+      </button>
+      {open ? (
+        <div className="menu-popover" role="menu" aria-label="View options">
+          {toggle('Focus mode', state.focus, controller.toggleFocus)}
+          {toggle('Dark mode', state.theme === 'dark', controller.toggleTheme)}
+          {toggle('Details panel', state.inspector, controller.toggleInspector)}
+          <div className="menu-separator" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              controller.setStatsOpen(true)
+              setOpen(false)
+            }}
+          >
+            <span>Writing stats…</span>
+            <span className="menu-check" />
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              controller.setHistoryOpen(true)
+              setOpen(false)
+            }}
+          >
+            <span>Project history…</span>
+            <span className="menu-check" />
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }

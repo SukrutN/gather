@@ -875,6 +875,8 @@ export function GatherProvider({ children }: { children: ReactNode }): ReactNode
       if (action === 'theme') controller.toggleTheme()
       if (action === 'import') void controller.importManuscriptFile()
       if (action === 'backup') void controller.backupNow()
+      if (action === 'stats') controller.setStatsOpen(true)
+      if (action === 'history') controller.setHistoryOpen(true)
     })
   }, [controller])
 

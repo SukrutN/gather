@@ -99,6 +99,7 @@ function TreeRow({
         style={{ paddingLeft: 8 + depth * 14 }}
         data-kind={node.kind}
         draggable
+        title="Drag to move"
         onDragStart={(event) => {
           dragId.current = node.id
           event.dataTransfer.effectAllowed = 'move'
