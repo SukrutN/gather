@@ -31,3 +31,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Publish the release for real; a draft is invisible to /releases/latest
+          # and to the app's auto-updater until it is un-drafted by hand.
+          GITHUB_RELEASE_DRAFT: 'false'
